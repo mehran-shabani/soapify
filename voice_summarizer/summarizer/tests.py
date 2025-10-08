@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from .forms import MAX_FILE_SIZE_BYTES, UploadAudioForm
+from uploader.forms import MAX_FILE_SIZE_BYTES, UploadAudioForm
 
 
 class UploadAudioFormTests(TestCase):
@@ -40,7 +40,7 @@ class HomeViewTests(TestCase):
 
     def test_get_request_renders_form(self) -> None:
         client = Client()
-        response = client.get(reverse("summarizer:home"))
+        response = client.get(reverse("uploader:home"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "خلاصه‌ساز هوشمند سخنرانی")

@@ -1,4 +1,4 @@
-"""Utilities for interacting with the OpenAI SDK."""
+"""Services for interacting with OpenAI APIs."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,7 +25,7 @@ def create_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-def transcribe_audio(file_path: Path, *, client: OpenAI | None = None) -> str:
+def transcribe_file(file_path: Path, *, client: OpenAI | None = None) -> str:
     """Transcribe the provided audio file using the configured model."""
 
     client = client or create_client()
@@ -34,11 +34,13 @@ def transcribe_audio(file_path: Path, *, client: OpenAI | None = None) -> str:
     with file_path.open("rb") as audio_file:
         response = client.audio.transcriptions.create(model=model, file=audio_file)
 
-    transcript_text = getattr(response, "text", "") or ""
+    transcript_text = getattr(response, "text", None)
+    if not isinstance(transcript_text, str):
+        raise ValueError("پاسخ نامعتبر از سرویس رونویسی دریافت شد.")
     return transcript_text.strip()
 
 
-def summarize_transcript(transcript: str, *, client: OpenAI | None = None) -> str:
+def summarize_text(transcript: str, *, client: OpenAI | None = None) -> str:
     """Summarize a transcript using the configured chat completion model."""
 
     client = client or create_client()
@@ -67,8 +69,14 @@ def summarize_transcript(transcript: str, *, client: OpenAI | None = None) -> st
         temperature=0.2,
     )
 
-    choice = response.choices[0] if response.choices else None
-    content = getattr(choice, "message", None)
-    summary_text = getattr(content, "content", "") if content else ""
-    return summary_text.strip()
+    choices = getattr(response, "choices", None)
+    if not choices:
+        raise ValueError("پاسخ نامعتبر از سرویس خلاصه‌سازی دریافت شد.")
 
+    choice = choices[0]
+    message = getattr(choice, "message", None)
+    content = getattr(message, "content", None)
+    if not isinstance(content, str):
+        raise ValueError("پاسخ نامعتبر از سرویس خلاصه‌سازی دریافت شد.")
+
+    return content.strip()
