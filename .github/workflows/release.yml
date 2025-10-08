@@ -2,32 +2,110 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main        # در صورت نیاز محدود/تغییر دهید
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: write   # لازم برای ساخت تگ و ریلیز
+  packages: write   # لازم برای push به GHCR
 
 jobs:
   release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # دیدن تاریخچه و همه تگ‌ها ضروری است
 
       - name: Ensure zip is available
         run: sudo apt-get update && sudo apt-get install -y zip
 
-      - name: Compute artifact & image names (lowercase)
-        id: names
+      - name: Compute next tag (bump by 0.01)
+        id: vers
         shell: bash
         run: |
-          echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-          echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
-          echo "IMAGE=${IMAGE_REPO}:${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          set -euo pipefail
 
-      - name: Build distribution archive
+          # همه تگ‌ها را بگیر
+          git fetch --tags --force
+
+          # آخرین تگ با پیشوند v
+          LATEST="$(git tag -l 'v*' | sort -V | tail -n1 || true)"
+
+          if [[ -z "${LATEST}" ]]; then
+            # شروع از v1.00 (فرمت Major.Minor با دو رقم اعشار)
+            NEXT="v1.00"
+          else
+            RAW="${LATEST#v}"
+
+            # حالت‌های قدیمی را هم هندل کن (v1.0.0 → 1.0.0)
+            IFS='.' read -r A B C <<< "${RAW}"
+
+            if [[ -n "${C:-}" ]]; then
+              # اگر فرمت قدیمی بود (سه بخشی)، آن را به دو بخشی نگاشت کن
+              # مثال: 1.0.0 → 1.00
+              MAJOR="${A:-1}"
+              MINOR="${B:-0}"
+            else
+              # دو بخشی (فرمت مطلوب): 1.00
+              MAJOR="${A:-1}"
+              MINOR="${B:-0}"
+            fi
+
+            # افزایش یک‌صدمی (MINOR دو رقمی 00..99)
+            MINOR=$((10#$MINOR + 1))
+            if [[ "${MINOR}" -ge 100 ]]; then
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+            fi
+
+            NEXT="v$(printf '%d.%02d' "${MAJOR}" "${MINOR}")"
+          fi
+
+          echo "latest_tag=${LATEST}"           >> "$GITHUB_OUTPUT"
+          echo "next_tag=${NEXT}"               >> "$GITHUB_OUTPUT"
+          echo "TAG=${NEXT}"                    >> "$GITHUB_ENV"
+          echo "LATEST=${LATEST}"               >> "$GITHUB_ENV"
+
+          # نام ریپو برای GHCR باید lowercase باشد
+          echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "IMAGE=${GITHUB_REPOSITORY,,}:${NEXT}"      >> "$GITHUB_ENV"
+
+      - name: Create and push git tag
+        env:
+          NEXT_TAG: ${{ steps.vers.outputs.next_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # اگر همین تگ از قبل موجود نبود بساز و push کن
+          if git rev-parse -q --verify "refs/tags/${NEXT_TAG}" >/dev/null; then
+            echo "Tag ${NEXT_TAG} already exists, will reuse it."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            git tag -a "${NEXT_TAG}" -m "Auto tag ${NEXT_TAG}"
+            git push origin "${NEXT_TAG}"
+            echo "Pushed tag ${NEXT_TAG}"
+          fi
+
+      # (اختیاری) اگر می‌خواهید نسخه داخل ریپو هم ثبت شود، این step را باز کنید
+      # - name: Update VERSION file and commit
+      #   env:
+      #     NEXT_TAG: ${{ steps.vers.outputs.next_tag }}
+      #   run: |
+      #     echo "${NEXT_TAG#v}" > VERSION
+      #     git config user.name  "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git add VERSION
+      #     git commit -m "[skip ci] chore(version): bump to ${NEXT_TAG}" || echo "No changes to commit"
+      #     git push
+
+      - name: Build distribution archive (zip)
         run: |
           zip -r app-dist.zip . \
             -x 'media/*' '*/media/*' \
@@ -36,11 +114,11 @@ jobs:
                '.git/*' '.github/workflows/*' \
                'app-dist.zip'
 
-      - name: Create GitHub release
+      - name: Create GitHub Release for computed tag
         uses: softprops/action-gh-release@v2
         with:
           files: app-dist.zip
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ env.TAG }}                  # از تگ محاسبه‌شده استفاده می‌کنیم
           name: Release ${{ env.TAG }}
           generate_release_notes: true
 
@@ -60,6 +138,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ env.IMAGE }}
+          # تگ کامل GHCR با lowercase
+          tags: |
+            ghcr.io/${{ env.IMAGE_REPO }}:${{ env.TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
