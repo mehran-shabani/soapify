@@ -48,14 +48,14 @@
     {% if summary %}
     <div class="section">
         <h2>خلاصهٔ هوشمند</h2>
-        <div class="placeholder">{{ summary }}</div>
+        <div class="placeholder">{{ summary|linebreaksbr }}</div>
     </div>
     {% endif %}
 
     {% if transcript %}
     <div class="section">
         <h2>متن کامل رونویسی</h2>
-        <div class="placeholder">{{ transcript }}</div>
+        <div class="placeholder">{{ transcript|linebreaksbr }}</div>
     </div>
     {% endif %}
 </div>
