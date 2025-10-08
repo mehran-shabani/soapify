@@ -1,12 +1,8 @@
-"""URL patterns for the summarizer app."""
+"""Legacy URL configuration with no active routes."""
 from __future__ import annotations
 
-from django.urls import path
-
-from .views import upload_and_summarize
+from django.urls import URLPattern, URLResolver
 
 app_name = "summarizer"
 
-urlpatterns = [
-    path("", upload_and_summarize, name="home"),
-]
+urlpatterns: list[URLPattern | URLResolver] = []

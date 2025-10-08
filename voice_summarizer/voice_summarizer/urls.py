@@ -8,7 +8,7 @@ from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("summarizer.urls")),
+    path("", include("uploader.urls")),
 ]
 
 if settings.DEBUG:

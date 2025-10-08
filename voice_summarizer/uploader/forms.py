@@ -1,4 +1,4 @@
-"""Forms for the summarizer app."""
+"""Forms for handling file uploads in the uploader app."""
 from __future__ import annotations
 
 from django import forms
