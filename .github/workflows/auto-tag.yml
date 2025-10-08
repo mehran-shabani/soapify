@@ -68,3 +68,12 @@ jobs:
           else
             echo "Tag ${NEXT_TAG} already exists. Skipping."
           fi
+      - name: Update VERSION file and commit (optional)
+        if: steps.vers.outputs.next_tag != steps.vers.outputs.latest_tag
+        env:
+          NEXT_TAG: ${{ steps.vers.outputs.next_tag }}
+        run: |
+          echo "${NEXT_TAG#v}" > VERSION
+          git add VERSION
+                git commit -m "[skip ci] chore(version): bump to ${NEXT_TAG}"
+                git push
