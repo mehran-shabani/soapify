@@ -15,6 +15,10 @@
    ```bash
    pip install -r requirements.txt
    ```
+   برای اجرای تست‌ها و توسعهٔ محلی، وابستگی‌های تکمیلی را نیز نصب کنید:
+   ```bash
+   pip install -r requirements.dev.txt
+   ```
 3. ساخت فایل تنظیمات محیطی:
    ```bash
    cp .env.example .env
@@ -28,6 +32,12 @@
    python manage.py runserver
    ```
 6. مشاهدهٔ برنامه در آدرس [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+
+## اجرای تست‌ها
+- برای اجرای مجموعه تست‌ها از Pytest استفاده کنید:
+  ```bash
+  pytest -q
+  ```
 
 ## پیکربندی OpenAI
 - مقدار `OPENAI_API_KEY` را با کلید معتبر جایگزین کنید.
