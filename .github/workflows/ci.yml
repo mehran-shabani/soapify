@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        working-directory: voice_summarizer
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements.dev.txt
+
+      - name: Prepare environment file
+        working-directory: voice_summarizer
+        run: |
+          cp .env.example .env
+          python - <<'PY'
+          from pathlib import Path
+
+          env_path = Path(".env")
+          defaults = {
+              "SECRET_KEY": "dummy-secret-key",
+              "DEBUG": "False",
+              "OPENAI_API_KEY": "dummy-openai-key",
+              "OPENAI_BASE_URL": "",
+              "OPENAI_TRANSCRIBE_MODEL": "dummy-transcribe-model",
+              "OPENAI_SUMMARY_MODEL": "dummy-summary-model",
+          }
+
+          lines = []
+          for line in env_path.read_text().splitlines():
+              if "=" in line:
+                  key, _ = line.split("=", 1)
+                  if key in defaults:
+                      lines.append(f"{key}={defaults[key]}")
+                      continue
+              lines.append(line)
+
+          env_path.write_text("\n".join(lines) + "\n")
+          PY
+
+      - name: Run migrations
+        working-directory: voice_summarizer
+        run: python manage.py migrate --noinput
+
+      - name: Run tests
+        working-directory: voice_summarizer
+        run: |
+          set -o pipefail
+          pytest -q | tee pytest.log
+
+      - name: Upload pytest log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log-${{ matrix.python-version }}
+          path: voice_summarizer/pytest.log
+          if-no-files-found: ignore
