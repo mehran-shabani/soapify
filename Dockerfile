@@ -7,11 +7,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY voice_summarizer/requirements.txt ./requirements.txt
+RUN addgroup --system app \
+    && adduser --system --ingroup app app
+
+COPY --chown=app:app voice_summarizer/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=app:app . .
+
+USER app
 
 EXPOSE 8000
 
-CMD ["python", "voice_summarizer/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["/bin/sh", "-c", "exec gunicorn --bind 0.0.0.0:$PORT voice_summarizer.wsgi:application"]
